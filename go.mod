@@ -3,7 +3,7 @@ module github.com/MatthewBehnke/apis
 go 1.18
 
 require (
-	entgo.io/ent v0.11.4
+	entgo.io/ent v0.11.5-0.20221212200803-3328201ba8a9
 	github.com/casbin/casbin/v2 v2.56.0
 	github.com/deepmap/oapi-codegen v1.12.2
 	github.com/go-chi/chi/v5 v5.0.7
@@ -17,12 +17,13 @@ require (
 	github.com/sirupsen/logrus v1.9.0
 	github.com/volatiletech/authboss-clientstate v0.0.0-20200826024349-8d4e74078241
 	github.com/volatiletech/authboss/v3 v3.2.1
-	golang.org/x/mod v0.6.0
+	golang.org/x/mod v0.7.0
 	logur.dev/logur v0.17.0
 )
 
 require (
-	ariga.io/atlas v0.8.1 // indirect
+	ariga.io/atlas v0.9.1-0.20230119123307-a3ab6808892b // indirect
+	ariga.io/entviz v0.0.0-20230125130633-6c9be8e08c7c // indirect
 	github.com/BurntSushi/toml v1.2.1 // indirect
 	github.com/Knetic/govaluate v3.0.1-0.20171022003610-9aa49832a739+incompatible // indirect
 	github.com/agext/levenshtein v1.2.3 // indirect
@@ -47,10 +48,10 @@ require (
 	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/zclconf/go-cty v1.12.0 // indirect
 	golang.org/x/crypto v0.1.0 // indirect
-	golang.org/x/net v0.1.0 // indirect
+	golang.org/x/net v0.6.0 // indirect
 	golang.org/x/oauth2 v0.1.0 // indirect
-	golang.org/x/sys v0.1.0 // indirect
-	golang.org/x/text v0.4.0 // indirect
+	golang.org/x/sys v0.5.0 // indirect
+	golang.org/x/text v0.7.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect

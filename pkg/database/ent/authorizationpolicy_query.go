@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 
+	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
@@ -24,6 +25,7 @@ type AuthorizationPolicyQuery struct {
 	order      []OrderFunc
 	fields     []string
 	predicates []predicate.AuthorizationPolicy
+	modifiers  []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -60,7 +62,7 @@ func (apq *AuthorizationPolicyQuery) Order(o ...OrderFunc) *AuthorizationPolicyQ
 	return apq
 }
 
-// First returns the first AuthorizationPolicy domain from the query.
+// First returns the first AuthorizationPolicy entity from the query.
 // Returns a *NotFoundError when no AuthorizationPolicy was found.
 func (apq *AuthorizationPolicyQuery) First(ctx context.Context) (*AuthorizationPolicy, error) {
 	nodes, err := apq.Limit(1).All(ctx)
@@ -105,8 +107,8 @@ func (apq *AuthorizationPolicyQuery) FirstIDX(ctx context.Context) int {
 	return id
 }
 
-// Only returns a single AuthorizationPolicy domain found by the query, ensuring it only returns one.
-// Returns a *NotSingularError when more than one AuthorizationPolicy domain is found.
+// Only returns a single AuthorizationPolicy entity found by the query, ensuring it only returns one.
+// Returns a *NotSingularError when more than one AuthorizationPolicy entity is found.
 // Returns a *NotFoundError when no AuthorizationPolicy entities are found.
 func (apq *AuthorizationPolicyQuery) Only(ctx context.Context) (*AuthorizationPolicy, error) {
 	nodes, err := apq.Limit(2).All(ctx)
@@ -214,10 +216,14 @@ func (apq *AuthorizationPolicyQuery) CountX(ctx context.Context) int {
 
 // Exist returns true if the query has elements in the graph.
 func (apq *AuthorizationPolicyQuery) Exist(ctx context.Context) (bool, error) {
-	if err := apq.prepareQuery(ctx); err != nil {
-		return false, err
+	switch _, err := apq.FirstID(ctx); {
+	case IsNotFound(err):
+		return false, nil
+	case err != nil:
+		return false, fmt.Errorf("ent: check existence: %w", err)
+	default:
+		return true, nil
 	}
-	return apq.sqlExist(ctx)
 }
 
 // ExistX is like Exist, but panics if an error occurs.
@@ -262,7 +268,6 @@ func (apq *AuthorizationPolicyQuery) Clone() *AuthorizationPolicyQuery {
 //		GroupBy(authorizationpolicy.FieldPtype).
 //		Aggregate(ent.Count()).
 //		Scan(ctx, &v)
-//
 func (apq *AuthorizationPolicyQuery) GroupBy(field string, fields ...string) *AuthorizationPolicyGroupBy {
 	grbuild := &AuthorizationPolicyGroupBy{config: apq.config}
 	grbuild.fields = append([]string{field}, fields...)
@@ -278,7 +283,7 @@ func (apq *AuthorizationPolicyQuery) GroupBy(field string, fields ...string) *Au
 }
 
 // Select allows the selection one or more fields/columns for the given query,
-// instead of selecting all fields in the domain.
+// instead of selecting all fields in the entity.
 //
 // Example:
 //
@@ -289,13 +294,17 @@ func (apq *AuthorizationPolicyQuery) GroupBy(field string, fields ...string) *Au
 //	client.AuthorizationPolicy.Query().
 //		Select(authorizationpolicy.FieldPtype).
 //		Scan(ctx, &v)
-//
 func (apq *AuthorizationPolicyQuery) Select(fields ...string) *AuthorizationPolicySelect {
 	apq.fields = append(apq.fields, fields...)
 	selbuild := &AuthorizationPolicySelect{AuthorizationPolicyQuery: apq}
 	selbuild.label = authorizationpolicy.Label
 	selbuild.flds, selbuild.scan = &apq.fields, selbuild.Scan
 	return selbuild
+}
+
+// Aggregate returns a AuthorizationPolicySelect configured with the given aggregations.
+func (apq *AuthorizationPolicyQuery) Aggregate(fns ...AggregateFunc) *AuthorizationPolicySelect {
+	return apq.Select().Aggregate(fns...)
 }
 
 func (apq *AuthorizationPolicyQuery) prepareQuery(ctx context.Context) error {
@@ -327,6 +336,9 @@ func (apq *AuthorizationPolicyQuery) sqlAll(ctx context.Context, hooks ...queryH
 		nodes = append(nodes, node)
 		return node.assignValues(columns, values)
 	}
+	if len(apq.modifiers) > 0 {
+		_spec.Modifiers = apq.modifiers
+	}
 	for i := range hooks {
 		hooks[i](ctx, _spec)
 	}
@@ -341,22 +353,14 @@ func (apq *AuthorizationPolicyQuery) sqlAll(ctx context.Context, hooks ...queryH
 
 func (apq *AuthorizationPolicyQuery) sqlCount(ctx context.Context) (int, error) {
 	_spec := apq.querySpec()
+	if len(apq.modifiers) > 0 {
+		_spec.Modifiers = apq.modifiers
+	}
 	_spec.Node.Columns = apq.fields
 	if len(apq.fields) > 0 {
 		_spec.Unique = apq.unique != nil && *apq.unique
 	}
 	return sqlgraph.CountNodes(ctx, apq.driver, _spec)
-}
-
-func (apq *AuthorizationPolicyQuery) sqlExist(ctx context.Context) (bool, error) {
-	switch _, err := apq.FirstID(ctx); {
-	case IsNotFound(err):
-		return false, nil
-	case err != nil:
-		return false, fmt.Errorf("ent: check existence: %w", err)
-	default:
-		return true, nil
-	}
 }
 
 func (apq *AuthorizationPolicyQuery) querySpec() *sqlgraph.QuerySpec {
@@ -422,6 +426,9 @@ func (apq *AuthorizationPolicyQuery) sqlQuery(ctx context.Context) *sql.Selector
 	if apq.unique != nil && *apq.unique {
 		selector.Distinct()
 	}
+	for _, m := range apq.modifiers {
+		m(selector)
+	}
 	for _, p := range apq.predicates {
 		p(selector)
 	}
@@ -437,6 +444,32 @@ func (apq *AuthorizationPolicyQuery) sqlQuery(ctx context.Context) *sql.Selector
 		selector.Limit(*limit)
 	}
 	return selector
+}
+
+// ForUpdate locks the selected rows against concurrent updates, and prevent them from being
+// updated, deleted or "selected ... for update" by other sessions, until the transaction is
+// either committed or rolled-back.
+func (apq *AuthorizationPolicyQuery) ForUpdate(opts ...sql.LockOption) *AuthorizationPolicyQuery {
+	if apq.driver.Dialect() == dialect.Postgres {
+		apq.Unique(false)
+	}
+	apq.modifiers = append(apq.modifiers, func(s *sql.Selector) {
+		s.ForUpdate(opts...)
+	})
+	return apq
+}
+
+// ForShare behaves similarly to ForUpdate, except that it acquires a shared mode lock
+// on any rows that are read. Other sessions can read the rows, but cannot modify them
+// until your transaction commits.
+func (apq *AuthorizationPolicyQuery) ForShare(opts ...sql.LockOption) *AuthorizationPolicyQuery {
+	if apq.driver.Dialect() == dialect.Postgres {
+		apq.Unique(false)
+	}
+	apq.modifiers = append(apq.modifiers, func(s *sql.Selector) {
+		s.ForShare(opts...)
+	})
+	return apq
 }
 
 // AuthorizationPolicyGroupBy is the group-by builder for AuthorizationPolicy entities.
@@ -491,8 +524,6 @@ func (apgb *AuthorizationPolicyGroupBy) sqlQuery() *sql.Selector {
 	for _, fn := range apgb.fns {
 		aggregation = append(aggregation, fn(selector))
 	}
-	// If no columns were selected in a custom aggregation function, the default
-	// selection is the fields used for "group-by", and the aggregation functions.
 	if len(selector.SelectedColumns()) == 0 {
 		columns := make([]string, 0, len(apgb.fields)+len(apgb.fns))
 		for _, f := range apgb.fields {
@@ -512,6 +543,12 @@ type AuthorizationPolicySelect struct {
 	sql *sql.Selector
 }
 
+// Aggregate adds the given aggregation functions to the selector query.
+func (aps *AuthorizationPolicySelect) Aggregate(fns ...AggregateFunc) *AuthorizationPolicySelect {
+	aps.fns = append(aps.fns, fns...)
+	return aps
+}
+
 // Scan applies the selector query and scans the result into the given value.
 func (aps *AuthorizationPolicySelect) Scan(ctx context.Context, v any) error {
 	if err := aps.prepareQuery(ctx); err != nil {
@@ -522,6 +559,16 @@ func (aps *AuthorizationPolicySelect) Scan(ctx context.Context, v any) error {
 }
 
 func (aps *AuthorizationPolicySelect) sqlScan(ctx context.Context, v any) error {
+	aggregation := make([]string, 0, len(aps.fns))
+	for _, fn := range aps.fns {
+		aggregation = append(aggregation, fn(aps.sql))
+	}
+	switch n := len(*aps.selector.flds); {
+	case n == 0 && len(aggregation) > 0:
+		aps.sql.Select(aggregation...)
+	case n != 0 && len(aggregation) > 0:
+		aps.sql.AppendSelect(aggregation...)
+	}
 	rows := &sql.Rows{}
 	query, args := aps.sql.Query()
 	if err := aps.driver.Query(ctx, query, args, rows); err != nil {
