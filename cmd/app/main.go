@@ -7,10 +7,11 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/samber/do"
+
 	v1 "github.com/MatthewBehnke/apis/internal/app/http/v1"
 	"github.com/MatthewBehnke/apis/internal/app/usecase"
 	"github.com/MatthewBehnke/apis/internal/app/usecase/repo"
-	"github.com/samber/do"
 )
 
 func main() {

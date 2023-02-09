@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 
+	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
@@ -24,6 +25,7 @@ type UserQuery struct {
 	order      []OrderFunc
 	fields     []string
 	predicates []predicate.User
+	modifiers  []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -60,7 +62,7 @@ func (uq *UserQuery) Order(o ...OrderFunc) *UserQuery {
 	return uq
 }
 
-// First returns the first User domain from the query.
+// First returns the first User entity from the query.
 // Returns a *NotFoundError when no User was found.
 func (uq *UserQuery) First(ctx context.Context) (*User, error) {
 	nodes, err := uq.Limit(1).All(ctx)
@@ -105,8 +107,8 @@ func (uq *UserQuery) FirstIDX(ctx context.Context) int {
 	return id
 }
 
-// Only returns a single User domain found by the query, ensuring it only returns one.
-// Returns a *NotSingularError when more than one User domain is found.
+// Only returns a single User entity found by the query, ensuring it only returns one.
+// Returns a *NotSingularError when more than one User entity is found.
 // Returns a *NotFoundError when no User entities are found.
 func (uq *UserQuery) Only(ctx context.Context) (*User, error) {
 	nodes, err := uq.Limit(2).All(ctx)
@@ -214,10 +216,14 @@ func (uq *UserQuery) CountX(ctx context.Context) int {
 
 // Exist returns true if the query has elements in the graph.
 func (uq *UserQuery) Exist(ctx context.Context) (bool, error) {
-	if err := uq.prepareQuery(ctx); err != nil {
-		return false, err
+	switch _, err := uq.FirstID(ctx); {
+	case IsNotFound(err):
+		return false, nil
+	case err != nil:
+		return false, fmt.Errorf("ent: check existence: %w", err)
+	default:
+		return true, nil
 	}
-	return uq.sqlExist(ctx)
 }
 
 // ExistX is like Exist, but panics if an error occurs.
@@ -262,7 +268,6 @@ func (uq *UserQuery) Clone() *UserQuery {
 //		GroupBy(user.FieldCreatedAt).
 //		Aggregate(ent.Count()).
 //		Scan(ctx, &v)
-//
 func (uq *UserQuery) GroupBy(field string, fields ...string) *UserGroupBy {
 	grbuild := &UserGroupBy{config: uq.config}
 	grbuild.fields = append([]string{field}, fields...)
@@ -278,7 +283,7 @@ func (uq *UserQuery) GroupBy(field string, fields ...string) *UserGroupBy {
 }
 
 // Select allows the selection one or more fields/columns for the given query,
-// instead of selecting all fields in the domain.
+// instead of selecting all fields in the entity.
 //
 // Example:
 //
@@ -289,13 +294,17 @@ func (uq *UserQuery) GroupBy(field string, fields ...string) *UserGroupBy {
 //	client.User.Query().
 //		Select(user.FieldCreatedAt).
 //		Scan(ctx, &v)
-//
 func (uq *UserQuery) Select(fields ...string) *UserSelect {
 	uq.fields = append(uq.fields, fields...)
 	selbuild := &UserSelect{UserQuery: uq}
 	selbuild.label = user.Label
 	selbuild.flds, selbuild.scan = &uq.fields, selbuild.Scan
 	return selbuild
+}
+
+// Aggregate returns a UserSelect configured with the given aggregations.
+func (uq *UserQuery) Aggregate(fns ...AggregateFunc) *UserSelect {
+	return uq.Select().Aggregate(fns...)
 }
 
 func (uq *UserQuery) prepareQuery(ctx context.Context) error {
@@ -327,6 +336,9 @@ func (uq *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 		nodes = append(nodes, node)
 		return node.assignValues(columns, values)
 	}
+	if len(uq.modifiers) > 0 {
+		_spec.Modifiers = uq.modifiers
+	}
 	for i := range hooks {
 		hooks[i](ctx, _spec)
 	}
@@ -341,22 +353,14 @@ func (uq *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 
 func (uq *UserQuery) sqlCount(ctx context.Context) (int, error) {
 	_spec := uq.querySpec()
+	if len(uq.modifiers) > 0 {
+		_spec.Modifiers = uq.modifiers
+	}
 	_spec.Node.Columns = uq.fields
 	if len(uq.fields) > 0 {
 		_spec.Unique = uq.unique != nil && *uq.unique
 	}
 	return sqlgraph.CountNodes(ctx, uq.driver, _spec)
-}
-
-func (uq *UserQuery) sqlExist(ctx context.Context) (bool, error) {
-	switch _, err := uq.FirstID(ctx); {
-	case IsNotFound(err):
-		return false, nil
-	case err != nil:
-		return false, fmt.Errorf("ent: check existence: %w", err)
-	default:
-		return true, nil
-	}
 }
 
 func (uq *UserQuery) querySpec() *sqlgraph.QuerySpec {
@@ -422,6 +426,9 @@ func (uq *UserQuery) sqlQuery(ctx context.Context) *sql.Selector {
 	if uq.unique != nil && *uq.unique {
 		selector.Distinct()
 	}
+	for _, m := range uq.modifiers {
+		m(selector)
+	}
 	for _, p := range uq.predicates {
 		p(selector)
 	}
@@ -437,6 +444,32 @@ func (uq *UserQuery) sqlQuery(ctx context.Context) *sql.Selector {
 		selector.Limit(*limit)
 	}
 	return selector
+}
+
+// ForUpdate locks the selected rows against concurrent updates, and prevent them from being
+// updated, deleted or "selected ... for update" by other sessions, until the transaction is
+// either committed or rolled-back.
+func (uq *UserQuery) ForUpdate(opts ...sql.LockOption) *UserQuery {
+	if uq.driver.Dialect() == dialect.Postgres {
+		uq.Unique(false)
+	}
+	uq.modifiers = append(uq.modifiers, func(s *sql.Selector) {
+		s.ForUpdate(opts...)
+	})
+	return uq
+}
+
+// ForShare behaves similarly to ForUpdate, except that it acquires a shared mode lock
+// on any rows that are read. Other sessions can read the rows, but cannot modify them
+// until your transaction commits.
+func (uq *UserQuery) ForShare(opts ...sql.LockOption) *UserQuery {
+	if uq.driver.Dialect() == dialect.Postgres {
+		uq.Unique(false)
+	}
+	uq.modifiers = append(uq.modifiers, func(s *sql.Selector) {
+		s.ForShare(opts...)
+	})
+	return uq
 }
 
 // UserGroupBy is the group-by builder for User entities.
@@ -491,8 +524,6 @@ func (ugb *UserGroupBy) sqlQuery() *sql.Selector {
 	for _, fn := range ugb.fns {
 		aggregation = append(aggregation, fn(selector))
 	}
-	// If no columns were selected in a custom aggregation function, the default
-	// selection is the fields used for "group-by", and the aggregation functions.
 	if len(selector.SelectedColumns()) == 0 {
 		columns := make([]string, 0, len(ugb.fields)+len(ugb.fns))
 		for _, f := range ugb.fields {
@@ -512,6 +543,12 @@ type UserSelect struct {
 	sql *sql.Selector
 }
 
+// Aggregate adds the given aggregation functions to the selector query.
+func (us *UserSelect) Aggregate(fns ...AggregateFunc) *UserSelect {
+	us.fns = append(us.fns, fns...)
+	return us
+}
+
 // Scan applies the selector query and scans the result into the given value.
 func (us *UserSelect) Scan(ctx context.Context, v any) error {
 	if err := us.prepareQuery(ctx); err != nil {
@@ -522,6 +559,16 @@ func (us *UserSelect) Scan(ctx context.Context, v any) error {
 }
 
 func (us *UserSelect) sqlScan(ctx context.Context, v any) error {
+	aggregation := make([]string, 0, len(us.fns))
+	for _, fn := range us.fns {
+		aggregation = append(aggregation, fn(us.sql))
+	}
+	switch n := len(*us.selector.flds); {
+	case n == 0 && len(aggregation) > 0:
+		us.sql.Select(aggregation...)
+	case n != 0 && len(aggregation) > 0:
+		us.sql.AppendSelect(aggregation...)
+	}
 	rows := &sql.Rows{}
 	query, args := us.sql.Query()
 	if err := us.driver.Query(ctx, query, args, rows); err != nil {
