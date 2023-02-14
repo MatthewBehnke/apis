@@ -32,9 +32,12 @@ func main() {
 	do.Provide(injector, repo.NewUserRepo)
 	do.Provide(injector, repo.NewAuthorizationPolicyRepo)
 	do.Provide(injector, repo.NewAuthorizationEnforcer)
+	do.Provide(injector, repo.NewGorillaSessionRepo)
+	
 	do.Provide(injector, usecase.NewLogger)
 	do.Provide(injector, usecase.NewAuthBossLogger)
 	do.Provide(injector, usecase.NewAuthBossServer)
+	do.Provide(injector, usecase.NewAuthbossSession)
 	do.Provide(injector, usecase.NewHTTPAuthorization)
 
 	//HTTP stuff
