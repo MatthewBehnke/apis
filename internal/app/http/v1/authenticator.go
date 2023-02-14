@@ -3,9 +3,7 @@ package v1
 import (
 	"os"
 
-	// "github.com/gorilla/sessions"
 	"github.com/samber/do"
-	// abclientstate "github.com/volatiletech/authboss-clientstate"
 	"github.com/volatiletech/authboss/v3"
 	"github.com/volatiletech/authboss/v3/defaults"
 

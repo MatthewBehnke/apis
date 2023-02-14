@@ -6,11 +6,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/MatthewBehnke/apis/internal/app/domain"
-	"github.com/MatthewBehnke/apis/internal/app/usecase"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 	"github.com/samber/do"
+
+	"github.com/MatthewBehnke/apis/internal/app/domain"
+	"github.com/MatthewBehnke/apis/internal/app/usecase"
 )
 
 // Pattern to verify sessionGorillaImplem conforms to the required interfaces
@@ -41,7 +42,6 @@ func NewGorillaSessionRepo(i *do.Injector) (usecase.SessionStateRepo, error) {
 type sessionGorillaImplem struct {
 	name  string
 	store sessions.Store
-	sess  []sessions.Session
 }
 
 func (s sessionGorillaImplem) Get(r *http.Request) (map[interface{}]interface{}, error) {

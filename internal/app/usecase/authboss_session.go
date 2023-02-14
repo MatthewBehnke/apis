@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/MatthewBehnke/apis/internal/app/domain"
-
 	"github.com/samber/do"
 	"github.com/volatiletech/authboss/v3"
+
+	"github.com/MatthewBehnke/apis/internal/app/domain"
 )
 
 // Pattern to verify AuthbossSession conforms to the required interfaces
@@ -17,7 +17,6 @@ var (
 )
 
 func NewAuthbossSession(i *do.Injector) (*AuthbossSession, error) {
-
 	conf := do.MustInvoke[*domain.Config](i)
 
 	return &AuthbossSession{
@@ -72,11 +71,11 @@ func (s AuthbossSession) WriteState(w http.ResponseWriter, state authboss.Client
 				whitelist := strings.Split(ev.Key, ",")
 				for key := range ses.values {
 					if k, ok := key.(string); ok {
-
 						dontDelete := false
 						for _, w := range whitelist {
 							if w == k {
 								dontDelete = true
+
 								break
 							}
 						}
@@ -106,6 +105,7 @@ func (s sessionState) Get(key string) (string, bool) {
 	if !ok {
 		return "", false
 	}
+
 	value := str.(string)
 
 	return value, ok
