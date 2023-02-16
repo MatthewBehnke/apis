@@ -4,12 +4,11 @@ go 1.18
 
 require (
 	entgo.io/ent v0.11.5-0.20221212200803-3328201ba8a9
+	github.com/alexedwards/scs/v2 v2.5.0
 	github.com/casbin/casbin/v2 v2.56.0
 	github.com/deepmap/oapi-codegen v1.12.2
 	github.com/go-chi/chi/v5 v5.0.7
 	github.com/google/go-github/v50 v50.0.0
-	github.com/gorilla/securecookie v1.1.1
-	github.com/gorilla/sessions v1.2.1
 	github.com/ilyakaznacheev/cleanenv v1.4.0
 	github.com/lib/pq v1.10.7
 	github.com/magefile/mage v1.14.0
@@ -23,6 +22,7 @@ require (
 
 require (
 	ariga.io/atlas v0.9.1-0.20230119123307-a3ab6808892b // indirect
+	ariga.io/entviz v0.0.0-20230125130633-6c9be8e08c7c // indirect
 	github.com/BurntSushi/toml v1.2.1 // indirect
 	github.com/Knetic/govaluate v3.0.1-0.20171022003610-9aa49832a739+incompatible // indirect
 	github.com/agext/levenshtein v1.2.3 // indirect

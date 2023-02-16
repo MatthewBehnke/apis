@@ -16,6 +16,7 @@ func main() {
 		Target:  "./pkg/database/ent",
 		Features: []gen.Feature{
 			gen.FeatureLock,
+			gen.FeatureUpsert,
 		},
 	}); err != nil {
 		log.Fatal("running ent codegen:", err)

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/MatthewBehnke/apis/pkg/database/ent/authorizationpolicy"
+	"github.com/MatthewBehnke/apis/pkg/database/ent/session"
 	"github.com/MatthewBehnke/apis/pkg/database/ent/user"
 	"github.com/MatthewBehnke/apis/pkg/database/models"
 )
@@ -44,6 +45,12 @@ func init() {
 	authorizationpolicyDescV5 := authorizationpolicyFields[6].Descriptor()
 	// authorizationpolicy.DefaultV5 holds the default value on creation for the V5 field.
 	authorizationpolicy.DefaultV5 = authorizationpolicyDescV5.Default.(string)
+	sessionFields := models.Session{}.Fields()
+	_ = sessionFields
+	// sessionDescData is the schema descriptor for data field.
+	sessionDescData := sessionFields[1].Descriptor()
+	// session.DataValidator is a validator for the "data" field. It is called by the builders before save.
+	session.DataValidator = sessionDescData.Validators[0].(func([]byte) error)
 	userFields := models.User{}.Fields()
 	_ = userFields
 	// userDescCreatedAt is the schema descriptor for created_at field.

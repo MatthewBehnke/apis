@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 
 	"github.com/MatthewBehnke/apis/pkg/database/ent/authorizationpolicy"
+	"github.com/MatthewBehnke/apis/pkg/database/ent/session"
 	"github.com/MatthewBehnke/apis/pkg/database/ent/user"
 )
 
@@ -34,6 +35,7 @@ type OrderFunc func(*sql.Selector)
 func columnChecker(table string) func(string) error {
 	checks := map[string]func(string) bool{
 		authorizationpolicy.Table: authorizationpolicy.ValidColumn,
+		session.Table:             session.ValidColumn,
 		user.Table:                user.ValidColumn,
 	}
 	check, ok := checks[table]
